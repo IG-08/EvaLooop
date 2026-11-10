@@ -80,7 +80,7 @@ saves everything to Google Drive. Re-running resumes from the cache.
 ```bash
 pip install evalplus openai google-genai fire tqdm scipy pytest && pip install -e . --no-deps   # no torch/vllm
 export GEMINI_API_KEY=...        # or: gcloud auth application-default login; export GOOGLE_CLOUD_PROJECT=...
-python -m pytest -q                                   # 103 tests, offline
+python -m pytest -q                                   # 104 tests, offline
 # for Vertex AI add  --base_url vertex  to preflight.py and run_experiments.py
 python a4/preflight.py                                # 2 real calls per model + cost estimate
 python a4/run_experiments.py --out runs/              # all models x configurations
@@ -126,7 +126,7 @@ New files:
 * `evaloop/models/vertex_genai.py` — the same back-end over Vertex AI (google-genai SDK; API key or
   Application Default Credentials); selected with `api_base_url="vertex"`.
 * `a4/` — experiment driver, preflight, analysis, failure sampler, fake server, Colab notebook.
-* `tests/test_multilingual_loop.py` — 27 offline tests (76 upstream + 27 new = 103).
+* `tests/test_multilingual_loop.py` — 28 offline tests (76 upstream + 28 new = 104).
 
 Modified files (small):
 
