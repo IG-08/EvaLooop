@@ -46,8 +46,13 @@ def get_groundtruth(problems, hashcode, tasks_only_output_not_none):
     
     if os.path.exists(cache_file):
         logger.info(f"Loading ground-truth from {cache_file}")
-        with open(cache_file, "rb") as f:
-            return pickle.load(f)
+        try:
+            with open(cache_file, "rb") as f:
+                return pickle.load(f)
+        except (EOFError, pickle.UnpicklingError, ValueError) as error:
+            # A run interrupted while writing leaves a truncated file; recompute it.
+            logger.warning(f"Ground-truth cache {cache_file} is corrupt ({error}); recomputing")
+            os.remove(cache_file)
 
     os.makedirs(CACHE_DIR, exist_ok=True)
     logger.info("Computing expected outputs...")
@@ -73,8 +78,11 @@ def get_groundtruth(problems, hashcode, tasks_only_output_not_none):
         expected_output[task_id] = oracle
     logger.info(f"Expected outputs computed in {time.time() - tbegin:.2f}s")
 
-    with open(cache_file, "wb") as f:
+    # Write atomically so that an interrupted run cannot leave a truncated cache behind.
+    tmp_file = f"{cache_file}.{os.getpid()}.tmp"
+    with open(tmp_file, "wb") as f:
         pickle.dump(expected_output, f)
+    os.replace(tmp_file, cache_file)
 
     return expected_output
 
