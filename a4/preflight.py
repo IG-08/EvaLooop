@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from evaloop.core.config import EvaluationConfig  # noqa: E402
 from evaloop.models.openai_compatible import OpenAICompatibleLLM, is_api_error  # noqa: E402
+from evaloop.models.vertex_genai import VertexGenAILLM  # noqa: E402
 from evaloop.tasks import TaskFactory  # noqa: E402
 
 from run_experiments import GEMINI_BASE_URL, SYSTEM_PROMPT, parse_models  # noqa: E402
@@ -36,11 +37,13 @@ N_LOOP_CONFIGS = 3
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", default="gemini-2.5-flash-lite,gemini-3.1-flash-lite:minimal")
-    parser.add_argument("--base_url", default=GEMINI_BASE_URL)
+    parser.add_argument("--base_url", default=GEMINI_BASE_URL,
+                        help='OpenAI-compatible endpoint, or "vertex" for Gemini on Vertex AI')
     parser.add_argument("--api_key_env", default="GEMINI_API_KEY")
     args = parser.parse_args(argv)
-    if not os.environ.get(args.api_key_env):
-        sys.exit(f"[FAIL] ${args.api_key_env} is not set")
+    if not os.environ.get(args.api_key_env) and not (
+            args.base_url == "vertex" and os.environ.get("GOOGLE_CLOUD_PROJECT")):
+        sys.exit(f"[FAIL] set ${args.api_key_env} (or, for --base_url vertex, $GOOGLE_CLOUD_PROJECT)")
 
     from evalplus.data import get_mbpp_plus
 
@@ -54,7 +57,8 @@ def main(argv=None):
 
     all_ok = True
     for model, effort in parse_models(args.models):
-        llm = OpenAICompatibleLLM({
+        backend = VertexGenAILLM if args.base_url == "vertex" else OpenAICompatibleLLM
+        llm = backend({
             "model_id": model, "base_url": args.base_url, "api_key_env": args.api_key_env,
             "temperature": 0.0, "top_p": 1.0, "max_tokens": 4096, "system_prompt": SYSTEM_PROMPT,
             "reasoning_effort": effort, "max_retries": 3,

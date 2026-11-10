@@ -154,7 +154,8 @@ class EvaluationConfig:
         if self.api_base_url:
             return {
                 "name": self._sanitize_model_name(model),
-                "type": "openai_compatible",
+                # "vertex" selects Gemini on Vertex AI via google-genai instead
+                "type": "vertex_genai" if self.api_base_url == "vertex" else "openai_compatible",
                 "model_id": model,
                 "base_url": self.api_base_url,
                 "api_key": os.environ.get(self.api_key_env) or (

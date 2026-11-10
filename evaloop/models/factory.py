@@ -51,6 +51,9 @@ class ModelFactory:
         elif model_type in ["openai", "chatgpt", "closed_source"]:
             from .closed_source import OpenAILLM
             return OpenAILLM(model_config)
+        elif model_type == "vertex_genai":
+            from .vertex_genai import VertexGenAILLM
+            return VertexGenAILLM(model_config)
         elif model_type == "openai_compatible":
             from .openai_compatible import OpenAICompatibleLLM
             return OpenAICompatibleLLM(model_config)
@@ -74,4 +77,5 @@ class ModelFactory:
             "chatgpt",
             "closed_source",
             "openai_compatible",
+            "vertex_genai",
         ]

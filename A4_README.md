@@ -62,21 +62,24 @@ language of the natural-language description.
 | `assert-only-probe` | 1 cycle, prompt = only `"""\n<assert line>\n"""` | how much of each task the assert line alone gives away (over-reliance check) |
 
 Models: `gemini-2.5-flash-lite` (also in the data package, so our baseline can be checked against
-the provided record) and `gemini-3.1-flash-lite` (with `reasoning_effort=minimal`), both through the
-Gemini API's OpenAI-compatible endpoint. All 378 MBPP+ v0.2.0 tasks, no subset.
+the provided record) and `gemini-3.1-flash-lite` (with thinking level `minimal`), both on Vertex AI
+(`--base_url vertex`, google-genai SDK) because the course credit is on a university Google Cloud
+account; the Gemini API's OpenAI-compatible endpoint works the same way with an AI Studio key.
+All 378 MBPP+ v0.2.0 tasks, no subset.
 
 ## 3. How to run
 
-**Colab (what was used).** Open `a4/run_a4_colab.ipynb` in Colab, add a secret `GEMINI_API_KEY`
-(billing enabled), *Run all*. It runs the tests, a preflight, all runs, and the analysis, and
+**Colab (what was used).** Open `a4/run_a4_colab.ipynb` in Colab, set `PROJECT_ID` (Vertex AI,
+sign in when asked) or switch `PROVIDER` to `gemini_api` and add a secret `GEMINI_API_KEY`, then *Run all*. It runs the tests, a preflight, all runs, and the analysis, and
 saves everything to Google Drive. Re-running resumes from the cache.
 
 **Anywhere else (Linux/macOS, Python ≥ 3.10; run it in a container or VM, since generated code is executed):**
 
 ```bash
-pip install evalplus openai fire tqdm scipy pytest && pip install -e . --no-deps   # torch/vllm not needed
-export GEMINI_API_KEY=...
-python -m pytest -q                                   # 100 tests, offline
+pip install evalplus openai google-genai fire tqdm scipy pytest && pip install -e . --no-deps   # no torch/vllm
+export GEMINI_API_KEY=...        # or: gcloud auth application-default login; export GOOGLE_CLOUD_PROJECT=...
+python -m pytest -q                                   # 103 tests, offline
+# for Vertex AI add  --base_url vertex  to preflight.py and run_experiments.py
 python a4/preflight.py                                # 2 real calls per model + cost estimate
 python a4/run_experiments.py --out runs/              # all models x configurations
 python a4/summarize.py --results runs/ --out analysis/ --data_package <assignment2-data>
@@ -118,8 +121,10 @@ New files:
 * `evaloop/models/openai_compatible.py` — back-end for OpenAI-compatible endpoints (Gemini). It
   never returns an API error as model text (see below), runs `batch_generate` concurrently, keeps
   a resumable JSONL response cache, and records token usage.
+* `evaloop/models/vertex_genai.py` — the same back-end over Vertex AI (google-genai SDK; API key or
+  Application Default Credentials); selected with `api_base_url="vertex"`.
 * `a4/` — experiment driver, preflight, analysis, failure sampler, fake server, Colab notebook.
-* `tests/test_multilingual_loop.py` — 24 offline tests (76 upstream + 24 new = 100).
+* `tests/test_multilingual_loop.py` — 27 offline tests (76 upstream + 27 new = 103).
 
 Modified files (small):
 
@@ -128,7 +133,7 @@ Modified files (small):
   `multilingual`; `api_base_url` selects the new back-end; `to_dict` records the loop.
 * `evaloop/core/evaluator.py` — the results file stores the run config and the back-end's usage.
 * `evaloop/cli.py` — exposes the new options on `evaloop evaluate`.
-* `evaloop/models/factory.py` — registers `openai_compatible`; back-ends are imported lazily so that
+* `evaloop/models/factory.py` — registers `openai_compatible` and `vertex_genai`; back-ends are imported lazily so that
   API-only runs do not need torch/vllm installed.
 * `evaloop/tasks/__init__.py` — imports the new task so it registers.
 

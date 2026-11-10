@@ -150,7 +150,8 @@ def main(argv=None):
     parser.add_argument("--out", required=True)
     parser.add_argument("--models", default="gemini-2.5-flash-lite,gemini-3.1-flash-lite:minimal")
     parser.add_argument("--configurations", default=",".join(DEFAULT_ORDER))
-    parser.add_argument("--base_url", default=GEMINI_BASE_URL)
+    parser.add_argument("--base_url", default=GEMINI_BASE_URL,
+                        help='OpenAI-compatible endpoint, or "vertex" for Gemini on Vertex AI')
     parser.add_argument("--api_key_env", default="GEMINI_API_KEY")
     parser.add_argument("--concurrency", type=int, default=32)
     parser.add_argument("--max_cycles", type=int, default=10)
@@ -163,8 +164,9 @@ def main(argv=None):
 
     logging.basicConfig(level=getattr(logging, args.log_level.upper()),
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    if not os.environ.get(args.api_key_env):
-        sys.exit(f"Set ${args.api_key_env} first.")
+    if not os.environ.get(args.api_key_env) and not (
+            args.base_url == "vertex" and os.environ.get("GOOGLE_CLOUD_PROJECT")):
+        sys.exit(f"Set ${args.api_key_env} (or, for --base_url vertex, $GOOGLE_CLOUD_PROJECT) first.")
     task_ids = sample_task_ids(args.n_tasks, args.seed)
     configurations = [c.strip() for c in args.configurations.split(",") if c.strip()]
     unknown = set(configurations) - set(CONFIGURATIONS)

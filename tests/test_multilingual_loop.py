@@ -203,3 +203,58 @@ def test_one_cycle_carries_telugu_summary_with_assert(generation_config):
     assert out["task_2_output"] == f'"""\n{TELUGU}\n{ASSERT_LINE}\n"""\n'
     assert "Telugu (తెలుగు)" in llm.prompts[1]
     json.dumps(out, ensure_ascii=False)  # serialisable
+
+
+# ---------------------------------------------------------------- Vertex AI back-end
+class FakeGenAI:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.calls = []
+        self.models = SimpleNamespace(generate_content=self._gen)
+
+    def _gen(self, model, contents, config):
+        self.calls.append((model, contents, config))
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        part = SimpleNamespace(text=outcome, thought=False)
+        thought = SimpleNamespace(text="hidden reasoning", thought=True)
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(content=SimpleNamespace(parts=[thought, part]),
+                                        finish_reason=SimpleNamespace(name="STOP"))],
+            usage_metadata=SimpleNamespace(prompt_token_count=7, candidates_token_count=3, thoughts_token_count=2),
+        )
+
+
+def test_vertex_backend_greedy_retry_and_thinking():
+    pytest.importorskip("google.genai")
+    from google.genai import errors
+
+    from evaloop.models.vertex_genai import VertexGenAILLM
+
+    client = FakeGenAI([errors.ClientError(429, {"error": {"message": "quota"}}), "code"])
+    llm = VertexGenAILLM({"model_id": "gemini-x", "system_prompt": "sys", "reasoning_effort": "minimal",
+                          "max_retries": 2}, client=client)
+    assert llm.generate("p") == "code"  # thought parts are not returned
+    model, contents, config = client.calls[-1]
+    assert (model, contents) == ("gemini-x", "p")
+    assert config.temperature == 0.0 and config.system_instruction == "sys"
+    assert str(config.thinking_config.thinking_level).upper().endswith("MINIMAL")
+    u = llm.usage_summary()
+    assert u["retries"] == 1 and u["prompt_tokens"] == 7 and u["completion_tokens"] == 5 and u["reasoning_tokens"] == 2
+
+
+def test_vertex_backend_fatal_on_permission_denied():
+    pytest.importorskip("google.genai")
+    from google.genai import errors
+
+    from evaloop.models.vertex_genai import VertexGenAILLM
+
+    llm = VertexGenAILLM({"model_id": "m"}, client=FakeGenAI([errors.ClientError(403, {"error": {"message": "no"}})]))
+    with pytest.raises(FatalAPIError):
+        llm.generate("p")
+
+
+def test_vertex_selected_by_config(tmp_path):
+    cfg = EvaluationConfig(model="gemini-2.5-flash-lite", output_dir=str(tmp_path), api_base_url="vertex")
+    assert cfg.get_model_config()["type"] == "vertex_genai"
