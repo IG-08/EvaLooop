@@ -43,6 +43,15 @@ _RETRYABLE = {
     "APITimeoutError",
     "InternalServerError",
     "ConflictError",
+    "SSLError",
+    "ConnectError",
+    "ReadError",
+    "WriteError",
+    "RemoteProtocolError",
+    "ReadTimeout",
+    "ConnectTimeout",
+    "ConnectionError",
+    "ConnectionResetError",
 }
 _FATAL = {"AuthenticationError", "PermissionDeniedError", "NotFoundError"}
 
@@ -255,4 +264,7 @@ def _looks_transient(message: str) -> bool:
     return any(token in message for token in (
         "overloaded", "unavailable", "try again", "please retry", "429", "500", "502", "503",
         "504", "resource_exhausted", "deadline", "timeout",
+        # network-level failures (TLS resets, dropped connections) are transient too
+        "ssl", "tls", "connection", "reset by peer", "eof occurred", "remote end closed",
+        "temporarily", "broken pipe",
     ))

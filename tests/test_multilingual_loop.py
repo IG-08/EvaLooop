@@ -258,3 +258,9 @@ def test_vertex_backend_fatal_on_permission_denied():
 def test_vertex_selected_by_config(tmp_path):
     cfg = EvaluationConfig(model="gemini-2.5-flash-lite", output_dir=str(tmp_path), api_base_url="vertex")
     assert cfg.get_model_config()["type"] == "vertex_genai"
+
+
+def test_network_errors_are_retried():
+    llm = _llm([_error("SSLError", "[SSL: TLSV1_ALERT_DECODE_ERROR] tlsv1 alert decode error"),
+                _error("ConnectError", "connection reset"), "ok"], max_retries=3)
+    assert llm.generate("p") == "ok" and llm.usage["api_errors"] == 0
