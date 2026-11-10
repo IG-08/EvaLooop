@@ -12,7 +12,7 @@ Configurations (all on MBPP+ v0.2.0, greedy, max 10 cycles, one run each):
 Usage (Gemini; key in $GEMINI_API_KEY):
 
     python a4/run_experiments.py --out runs/ \
-        --models gemini-2.5-flash-lite,gemini-3.1-flash-lite:minimal
+        --models gemini-3.1-flash-lite:minimal,gemini-3.5-flash-lite:minimal
 
 ``name:effort`` sets ``reasoning_effort`` for that model. Results go to
 ``<out>/<model>/<configuration>_code_generation_summarization_results.json``.
@@ -82,7 +82,21 @@ class A4Evaluator(EvaLoopEvaluator):
         tasks = super()._create_tasks()
         return tasks[:1] if self.probe else tasks  # probe: generation only
 
-    # (2) bookkeeping --------------------------------------------------------
+    # (2) fatal API errors abort the run ------------------------------------
+    # The framework's cycle runner catches every exception of a batch and records the
+    # tasks as failed, which would save a run of pure API failures as if they were the
+    # model's results. Stop instead, before anything is written.
+    def _create_model(self):
+        self._model = super()._create_model()
+        return self._model
+
+    def _process_cycle_results(self, cycle_output, *args, **kwargs):
+        fatal = getattr(self, "_model", None) and self._model.usage_summary().get("fatal_error")
+        if fatal:
+            raise SystemExit(f"[abort] fatal API error, nothing saved: {fatal}")
+        return super()._process_cycle_results(cycle_output, *args, **kwargs)
+
+    # (3) bookkeeping --------------------------------------------------------
     def _finalize_model_result(self, model_result):
         super()._finalize_model_result(model_result)
         model_result["configuration"] = self.configuration
@@ -148,7 +162,7 @@ def run_one(args, model: str, effort, configuration: str, task_ids) -> Path:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", required=True)
-    parser.add_argument("--models", default="gemini-2.5-flash-lite,gemini-3.1-flash-lite:minimal")
+    parser.add_argument("--models", default="gemini-3.1-flash-lite:minimal,gemini-3.5-flash-lite:minimal")
     parser.add_argument("--configurations", default=",".join(DEFAULT_ORDER))
     parser.add_argument("--base_url", default=GEMINI_BASE_URL,
                         help='OpenAI-compatible endpoint, or "vertex" for Gemini on Vertex AI')

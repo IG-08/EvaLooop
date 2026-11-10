@@ -66,9 +66,9 @@ def hints(code, entry_point, carried, configuration, test_results, raw_outputs):
     return "; ".join(out)
 
 
-def ours(results_dir, per_cell, seed, problems):
+def ours(results_dir, per_cell, seed, problems, models=None):
     cases = []
-    for (model, configuration), result in sorted(load_runs(results_dir).items()):
+    for (model, configuration), result in sorted(load_runs(results_dir, models).items()):
         if result.get("probe"):
             continue
         failed = [r for r in result["prompt_results"]
@@ -138,11 +138,12 @@ def main(argv=None):
     parser.add_argument("--per_cell", type=int, default=8)
     parser.add_argument("--seed", type=int, default=591)
     parser.add_argument("--data_package", default=None)
+    parser.add_argument("--models", default=None)
     args = parser.parse_args(argv)
     from evalplus.data import get_mbpp_plus
 
     problems = get_mbpp_plus()
-    cases = ours(Path(args.results), args.per_cell, args.seed, problems)
+    cases = ours(Path(args.results), args.per_cell, args.seed, problems, args.models)
     if args.data_package:
         models = sorted({c["model"] for c in cases})
         cases += baseline(args.data_package, models, args.per_cell, args.seed, problems)

@@ -9,7 +9,8 @@ Behaviour (deterministic per prompt, so caching and resumption can be tested):
   appears in the prompt, broken on purpose for ~12% of prompts;
 * summarization prompts -> a one-line summary in the requested language
   (Telugu, English, or the standard "write a python function to ..." form);
-* ~3% of requests are answered with HTTP 429 to exercise the retry path.
+* ~3% of requests are answered with HTTP 429 to exercise the retry path;
+* the model name ``missing-model`` always gets HTTP 404 (tests the abort path).
 
 No model is involved; this only checks plumbing (prompts, extraction, testing,
 results files, ASL, summary.csv).
@@ -66,6 +67,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if body["model"] == "missing-model":
+            return self._send(404, {"error": {"message": "model not found", "code": 404}})
         if RNG.random() < 0.03:
             return self._send(429, {"error": {"message": "fake rate limit", "code": 429}})
         prompt = body["messages"][-1]["content"]

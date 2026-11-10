@@ -61,10 +61,12 @@ language of the natural-language description.
 | `english-control` | the extension's instruction text, but `language="English"` | wording control: a Telugu sentence cannot start with "write a python function to", so the instruction had to change. `telugu − english-control` isolates the language; `english-control − standard` isolates the wording. |
 | `assert-only-probe` | 1 cycle, prompt = only `"""\n<assert line>\n"""` | how much of each task the assert line alone gives away (over-reliance check) |
 
-Models: `gemini-2.5-flash-lite` (also in the data package, so our baseline can be checked against
-the provided record) and `gemini-3.1-flash-lite` (with thinking level `minimal`), both on Vertex AI
-(`--base_url vertex`, google-genai SDK) because the course credit is on a university Google Cloud
-account; the Gemini API's OpenAI-compatible endpoint works the same way with an AI Studio key.
+Models: `gemini-3.1-flash-lite` and `gemini-3.5-flash-lite` (both with thinking level `minimal`), on
+Vertex AI (`--base_url vertex`, google-genai SDK), because the course credit is on a university Google
+Cloud account for which AI Studio is disabled. The originally planned `gemini-2.5-flash-lite` (which is in
+the data package and would have allowed a reproduction check against the provided records) was retired on
+Vertex AI on Oct 20, 2026 and is closed to new Gemini-API projects; none of the 60 data-package models is
+available to us, so the standard-loop baseline is re-run for both models rather than taken from the package.
 All 378 MBPP+ v0.2.0 tasks, no subset.
 
 ## 3. How to run

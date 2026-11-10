@@ -1,6 +1,6 @@
 """Checks every model with two real calls before the long run, and estimates cost.
 
-    python a4/preflight.py --models gemini-2.5-flash-lite,gemini-3.1-flash-lite:minimal
+    python a4/preflight.py --models gemini-3.1-flash-lite:minimal,gemini-3.5-flash-lite:minimal
 
 For each model it sends (1) the cycle-1 generation prompt of Mbpp/2 and (2) the
 Telugu summarization prompt for the canonical solution, prints [ok]/[FAIL], the
@@ -27,6 +27,7 @@ from run_experiments import GEMINI_BASE_URL, SYSTEM_PROMPT, parse_models  # noqa
 PRICES = {
     "gemini-2.5-flash-lite": (0.10, 0.40),
     "gemini-3.1-flash-lite": (0.25, 1.50),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
 }
 # Cycles actually run per loop configuration, from gemini-2.5-flash-lite's
 # standard-loop record in the data package (sum over tasks of min(sustained+1, 10)).
@@ -36,7 +37,7 @@ N_LOOP_CONFIGS = 3
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--models", default="gemini-2.5-flash-lite,gemini-3.1-flash-lite:minimal")
+    parser.add_argument("--models", default="gemini-3.1-flash-lite:minimal,gemini-3.5-flash-lite:minimal")
     parser.add_argument("--base_url", default=GEMINI_BASE_URL,
                         help='OpenAI-compatible endpoint, or "vertex" for Gemini on Vertex AI')
     parser.add_argument("--api_key_env", default="GEMINI_API_KEY")

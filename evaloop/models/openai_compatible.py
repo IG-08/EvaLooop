@@ -116,6 +116,8 @@ class OpenAICompatibleLLM(BaseLLM):
 
     # ------------------------------------------------------------------ public API
     def generate(self, prompt: str, **kwargs) -> str:
+        if self.usage.get("fatal_error"):  # e.g. unknown model: do not send 378 more requests
+            raise FatalAPIError(self.usage["fatal_error"])
         key = self._cache_key(prompt)
         cached = self._cache.get(key)
         if cached is not None:
@@ -218,6 +220,8 @@ class OpenAICompatibleLLM(BaseLLM):
                 name = type(error).__name__
                 message = str(error)
                 if name in _FATAL:
+                    with self._lock:
+                        self.usage["fatal_error"] = f"{name}: {message}"
                     raise FatalAPIError(f"{name}: {message}") from error
                 if (name == "BadRequestError" and self.reasoning_effort
                         and any(t in message.lower() for t in ("reasoning", "thinking"))):

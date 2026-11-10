@@ -38,13 +38,16 @@ LATIN = re.compile(r"[A-Za-z]")
 
 
 # ----------------------------------------------------------------- loading
-def load_runs(results_dir: Path):
+def load_runs(results_dir: Path, models=None):
+    """Results keyed by (model, configuration); ``models`` = optional "a,b:effort" filter."""
+    wanted = {m.split(":")[0].strip() for m in models.split(",")} if models else None
     runs = {}
     for path in sorted(results_dir.glob("*/*_code_generation_summarization_results.json")):
         result = json.loads(path.read_text(encoding="utf-8"))[0]
         model = result.get("config", {}).get("model") or path.parent.name
         configuration = result.get("configuration") or path.name.split("_code_generation")[0]
-        runs[(model, configuration)] = result
+        if wanted is None or model in wanted:
+            runs[(model, configuration)] = result
     return runs
 
 
@@ -177,11 +180,12 @@ def main(argv=None):
     parser.add_argument("--results", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--data_package", default=None, help="folder with loops/ and leaderboard.json")
+    parser.add_argument("--models", default=None, help="only these models (same format as run_experiments)")
     args = parser.parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    runs = load_runs(Path(args.results))
+    runs = load_runs(Path(args.results), args.models)
     if not runs:
         sys.exit("no results files found")
     key = lambda k: (k[0], ORDER.index(k[1]) if k[1] in ORDER else 99)  # noqa: E731
