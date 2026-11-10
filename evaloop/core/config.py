@@ -64,6 +64,7 @@ class EvaluationConfig:
     max_concurrency: int = 8
     reasoning_effort: Optional[str] = None
     response_cache: Optional[str] = None
+    max_retries: int = 8
     
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -168,6 +169,7 @@ class EvaluationConfig:
                 "max_concurrency": self.max_concurrency,
                 "reasoning_effort": self.reasoning_effort,
                 "cache_path": self.response_cache,
+                "max_retries": self.max_retries,
             }
         if any(provider in model.lower() for provider in ["gpt", "chatgpt", "openai"]):
             model_type = "openai"

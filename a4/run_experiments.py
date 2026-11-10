@@ -147,6 +147,7 @@ def run_one(args, model: str, effort, configuration: str, task_ids) -> Path:
         max_concurrency=args.concurrency,
         reasoning_effort=effort,
         response_cache=str(model_dir / "response_cache.jsonl"),
+        max_retries=args.max_retries,
         **spec,
     )
     evaluator = A4Evaluator(config, configuration, probe=probe, task_ids=task_ids)
@@ -167,8 +168,9 @@ def main(argv=None):
     parser.add_argument("--base_url", default=GEMINI_BASE_URL,
                         help='OpenAI-compatible endpoint, or "vertex" for Gemini on Vertex AI')
     parser.add_argument("--api_key_env", default="GEMINI_API_KEY")
-    parser.add_argument("--concurrency", type=int, default=32)
+    parser.add_argument("--concurrency", type=int, default=12)
     parser.add_argument("--max_cycles", type=int, default=10)
+    parser.add_argument("--max_retries", type=int, default=12, help="retries per call (rate limits)")
     parser.add_argument("--max_tokens", type=int, default=4096)
     parser.add_argument("--n_tasks", type=int, default=0, help="0 = all 378 tasks")
     parser.add_argument("--seed", type=int, default=591)
@@ -191,8 +193,14 @@ def main(argv=None):
         for configuration in configurations:
             path = results_path(Path(args.out), model, configuration)
             if path.exists() and not args.force:
-                print(f"[skip] {model} / {configuration} (already done)", flush=True)
-                continue
+                previous = json.loads(path.read_text(encoding="utf-8"))[0].get("usage", {})
+                if not previous.get("api_errors"):
+                    print(f"[skip] {model} / {configuration} (already done)", flush=True)
+                    continue
+                # Some calls failed permanently last time (e.g. rate limits). Re-run: every
+                # answer received is replayed from the cache, only the failed calls are retried.
+                print(f"[redo] {model} / {configuration}: {previous['api_errors']} API errors last time",
+                      flush=True)
             print(f"[run ] {model} / {configuration} ...", flush=True)
             start = time.time()
             done = run_one(args, model, effort, configuration, task_ids)
