@@ -92,6 +92,13 @@ class EvaLoopCLI:
         preferred_batch_size: int = 64,
         is_chat_model: bool = True,
         system_prompt: str = "You are a helpful programming assistant.",
+        loop_type: str = "standard",
+        summary_language: str = "Telugu",
+        api_base_url: Optional[str] = None,
+        api_key_env: str = "OPENAI_API_KEY",
+        max_concurrency: int = 8,
+        reasoning_effort: Optional[str] = None,
+        response_cache: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Run code generation and summarization evaluation experiment.
@@ -128,6 +135,16 @@ class EvaLoopCLI:
             preferred_batch_size: Preferred batch size when auto-batching.
             is_chat_model: Whether the model is a chat/instruction-tuned model.
             system_prompt: System prompt for chat models.
+            loop_type: "standard" (code <-> English summary, upstream) or
+                "multilingual" (code <-> one-sentence summary in summary_language).
+            summary_language: Natural language of the carried summary when
+                loop_type is "multilingual" (e.g. "Telugu"; "English" is the wording control).
+            api_base_url: OpenAI-compatible endpoint; selects the openai_compatible back-end
+                (e.g. "https://generativelanguage.googleapis.com/v1beta/openai/" for Gemini).
+            api_key_env: Environment variable holding the key for api_base_url.
+            max_concurrency: Concurrent requests for the openai_compatible back-end.
+            reasoning_effort: Optional reasoning_effort sent to the endpoint.
+            response_cache: JSONL cache of responses; makes interrupted runs resumable.
 
         Returns:
             Dictionary containing evaluation results with successful cycles for each task.
@@ -203,6 +220,13 @@ class EvaLoopCLI:
             is_chat_model=is_chat_model,
             system_prompt=system_prompt,
             openai_api_key=openai_api_key,
+            loop_type=loop_type,
+            summary_language=summary_language,
+            api_base_url=api_base_url,
+            api_key_env=api_key_env,
+            max_concurrency=max_concurrency,
+            reasoning_effort=reasoning_effort,
+            response_cache=response_cache,
         )
         # Log model type detection results
         model_config = config.get_model_config()
@@ -214,7 +238,7 @@ class EvaLoopCLI:
                            f"batch_size={model_config['batch_config']['preferred_batch_size']}")
         elif model_type == "huggingface":
             self.logger.info(f"  HuggingFace config: device={model_config['device']}")
-        elif model_type in ["openai", "anthropic"]:
+        elif model_type in ["openai", "anthropic", "openai_compatible"]:
             self.logger.info(f"  API config: model_id={model_config['model_id']}")
 
         # Create and run evaluator

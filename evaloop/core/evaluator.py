@@ -135,6 +135,9 @@ class EvaLoopEvaluator:
         
         # Finalize results
         self._finalize_model_result(model_result)
+        # Token/error accounting of back-ends that provide it (openai_compatible)
+        if callable(getattr(model, "usage_summary", None)):
+            model_result["usage"] = model.usage_summary()
         
         return model_result
     
@@ -144,6 +147,8 @@ class EvaLoopEvaluator:
             "model": str(model),
             # Loop budget M; needed by the analyzer to normalize the ASL metrics
             "max_cycles": self.config.max_cycles,
+            # Which loop produced this file (standard / multilingual + language)
+            "config": self.config.to_dict(),
             "prompt_results": []
         }
         

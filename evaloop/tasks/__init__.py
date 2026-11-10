@@ -10,8 +10,10 @@ from .factory import TaskFactory, register_task
 from .code_generation import CodeGenerationTask
 from .code_summarization import CodeSummarizationTask
 from .code_translation import CodeTranslationTask
+from .code_summarization_multilingual import MultilingualCodeSummarizationTask
 
 __all__ = [
+    "MultilingualCodeSummarizationTask",
     "BaseTask",
     "TaskFactory",
     "register_task",

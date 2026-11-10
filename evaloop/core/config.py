@@ -50,6 +50,20 @@ class EvaluationConfig:
     
     # API configuration
     openai_api_key: Optional[str] = None
+
+    # Loop type (Assignment 4 extension). "standard" is the upstream
+    # code <-> English-summary loop; "multilingual" carries a one-sentence summary
+    # written in ``summary_language`` instead (see MultilingualCodeSummarizationTask).
+    loop_type: str = "standard"
+    summary_language: str = "Telugu"
+
+    # OpenAI-compatible endpoint (e.g. Gemini). Setting api_base_url selects the
+    # "openai_compatible" back-end regardless of the model name.
+    api_base_url: Optional[str] = None
+    api_key_env: str = "OPENAI_API_KEY"
+    max_concurrency: int = 8
+    reasoning_effort: Optional[str] = None
+    response_cache: Optional[str] = None
     
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -73,6 +87,9 @@ class EvaluationConfig:
         
         if self.max_model_len <= 0:
             raise ValueError("max_model_len must be positive")
+
+        if self.loop_type not in ("standard", "multilingual"):
+            raise ValueError("loop_type must be 'standard' or 'multilingual'")
         
         # Create output directory
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
@@ -120,6 +137,11 @@ class EvaluationConfig:
             "gpu_memory_utilization": self.gpu_memory_utilization,
             "max_model_len": self.max_model_len,
             "trust_remote_code": self.trust_remote_code,
+            "loop_type": self.loop_type,
+            "summary_language": self.summary_language if self.loop_type == "multilingual" else None,
+            "api_base_url": self.api_base_url,
+            "reasoning_effort": self.reasoning_effort,
+            "system_prompt": self.system_prompt,
         }
     
     def get_model_config(self) -> Dict[str, Any]:
@@ -129,6 +151,23 @@ class EvaluationConfig:
     def _create_model_config(self, model: str) -> Dict[str, Any]:
         """Create configuration for a specific model."""
         # Determine model type based on model name/path
+        if self.api_base_url:
+            return {
+                "name": self._sanitize_model_name(model),
+                "type": "openai_compatible",
+                "model_id": model,
+                "base_url": self.api_base_url,
+                "api_key": os.environ.get(self.api_key_env) or (
+                    self.openai_api_key if self.api_key_env == "OPENAI_API_KEY" else None),
+                "api_key_env": self.api_key_env,
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+                "max_tokens": self.max_model_len,
+                "system_prompt": self.system_prompt if self.is_chat_model else None,
+                "max_concurrency": self.max_concurrency,
+                "reasoning_effort": self.reasoning_effort,
+                "cache_path": self.response_cache,
+            }
         if any(provider in model.lower() for provider in ["gpt", "chatgpt", "openai"]):
             model_type = "openai"
         elif "claude" in model.lower():
@@ -404,20 +443,32 @@ class EvaluationConfig:
     
     def get_task_configs(self, task_type: str = "code_generation_summarization") -> List[Dict[str, Any]]:
         """Generate task configurations based on task type."""
-        if task_type == "code_generation_summarization":
+        if task_type == "code_generation_summarization" and self.loop_type == "multilingual":
+            # Same generation step as the standard loop; only the summarization
+            # step changes (its default template lives in the task module).
+            standard = self.get_task_configs_standard()
             return [
-                {
-                    "type": "code_generation",
-                    "language": "python",
-                    "prompt_template": "Generate Python code for the following task: \n{description}\nReturn only the code, without explanations or comments.",
-                },
-                {
-                    "type": "code_summarization", 
-                    "prompt_template": "Use one sentence to summarize the following code and start with 'write a python function to':\n\n```\n{code}\n```\n\n```\nwrite a python function to\n```",
-                },
+                standard[0],
+                {"type": "code_summarization_multilingual", "language": self.summary_language},
             ]
+        if task_type == "code_generation_summarization":
+            return self.get_task_configs_standard()
         elif task_type == "code_translation":
             # Code translation is not currently supported but kept as interface
             raise NotImplementedError("Code translation is not currently supported")
         else:
             raise ValueError(f"Unsupported task type: {task_type}. Currently only 'code_generation_summarization' is supported.")
+
+    def get_task_configs_standard(self) -> List[Dict[str, Any]]:
+        """The upstream code <-> English-summary task pair (unchanged)."""
+        return [
+            {
+                "type": "code_generation",
+                "language": "python",
+                "prompt_template": "Generate Python code for the following task: \n{description}\nReturn only the code, without explanations or comments.",
+            },
+            {
+                "type": "code_summarization", 
+                "prompt_template": "Use one sentence to summarize the following code and start with 'write a python function to':\n\n```\n{code}\n```\n\n```\nwrite a python function to\n```",
+            },
+        ]
